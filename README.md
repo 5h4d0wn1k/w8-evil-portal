@@ -77,15 +77,47 @@ This project is provided for **educational and authorized security testing purpo
 
 ### Prohibited Use
 - Intercepting communications on networks you do not own
-- Attacking infrastructure without authorization
-- Any activity that violates applicable laws or regulations
+- Running any portal (even a simulation) against real victims outside your own lab
+- Capturing real credentials — this build uses lab-fake creds and RSA-redacts to sha256 prefixes
+- Any activity that violates applicable laws or regulations — the Python engine emits no radio
 - Commercial use without proper licensing
 
-### No Warranty
-This software is provided "AS IS" without warranty of any kind. The author is not responsible for any misuse or damage caused by this software.
+### Regulatory Framework
+- **Federal Communications Act (47 U.S.C. § 333)**: Willful interference with authorized radio communications is prohibited.
+- **47 CFR Part 15**: Unauthorized intentional radiators are regulated; this repo is byte-level simulation only.
+- **CFAA (18 U.S.C. § 1030) / ECPA / State computer-crime laws**: Impersonating a hotspot and harvesting credentials from networks you don't own is a serious federal and state crime.
+- Deploying a real evil-twin portal requires written scope over enabled networks with clear victim notice — even then, use sanctioned phishing-simulation tools, not this codebase.
 
-### Responsible Disclosure
-If you discover vulnerabilities using this tool, follow responsible disclosure practices:
-1. Report to the vendor/owner privately
-2. Allow reasonable time for remediation
-3. Do not exploit beyond proof of concept
+## Live Lab Test Plan
+
+Offline (this repo, no radio):
+1. Gated simulation:
+   `python3 firmware/evil_portal.py --simulate --lab-ssid lab-test-net
+   --i-understand-this-is-an-offline-lab-simulation-with-no-radio-emission --json reports/w8.json`
+   — beacon + probe + auth frames as bytes, portal GET/POST + DNS wildcard, exit 0.
+2. Negative gates: `--simulate` without the flag -> exit 2; non-`lab-*` SSID -> exit 2.
+3. `python3 -m unittest discover -s tests` — byte-exact beacon/auth, redaction tests (exit 0).
+
+Authorized lab (simulation of YOUR OWN AP only):
+4. Clone your own lab AP's SSID in a shielded enclosure; verify captured posts carry only fake
+   credentials and the JSON report is sha256-redacted.
+5. `green = permitted`: offline beacon/portal byte simulation; nothing transmitted.
+
+## Metrics
+
+- Evil-twin beacon (byte-exact, frame_core): clone lab SSID, interval 100, FCS verified
+- Association simulation: probe-request + open auth (AUTH_ALG_OPEN) all FCS-verified as bytes
+- Captive portal: GET / -> login form, POST /login -> capture + success, wildcard DNS ->
+  PORTAL_IP (192.0.2.4 TEST-NET only, never a real address)
+- Credential handling: accepted only in the gated lab path; JSON stores sha256 prefix (16 hex),
+  never plaintext; `credential-logs/` gitignored
+- Safety gate: simulation requires confirmation flag AND `lab-*` SSID; exit 2 otherwise
+- Offline: no radio; no wall-clock-dependent frame data (codes are the only realism)
+
+- Test suite: `python3 -m unittest discover -s tests`
+- Reports: `reports/` (gitignored)
+- Associated firmware: `firmware/w8_evil_portal/w8_evil_portal.ino` (ESP32-C6)
+
+## License
+
+MIT
