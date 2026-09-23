@@ -3,126 +3,60 @@
 > or hold explicit written authorization to assess**. Unauthorized use is
 > prohibited and may be illegal. Read [ETHICS.md](ETHICS.md) and
 > [SCOPE.md](SCOPE.md) before use. Use at your own risk; **AS IS**, no warranty.
-# W8 — Evil Portal + Captive
 
-Create evil twin AP with realistic captive portal for credential capture.
+# W8 — Evil Portal + Captive-Portal Simulator (Wi-Fi Security Lab)
 
-## Overview
+Offline, byte-level simulation of an evil-twin AP and captive portal for wireless security labs — crafted beacon/probe/auth frames, a realistic login flow, and RSA-redacted credential-capture records. No radio is ever emitted.
 
-This project implements an evil twin attack with a professional-looking captive portal that:
-- Clones any WiFi SSID
-- Presents a realistic WiFi login page
-- Captures credentials when users enter them
-- Supports multiple portal templates
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/5h4d0wn1k/w8-evil-portal.svg)](https://github.com/5h4d0wn1k/w8-evil-portal)
+[![Last commit](https://img.shields.io/github/last-commit/5h4d0wn1k/w8-evil-portal.svg)](https://github.com/5h4d0wn1k/w8-evil-portal)
+[![Issues](https://img.shields.io/github/issues/5h4d0wn1k/w8-evil-portal.svg)](https://github.com/5h4d0wn1k/w8-evil-portal)
 
-**WARNING: Educational use only. Test on your own lab network.**
+## Why
 
-## Hardware
+Evil-twin attacks are a defining threat in Wi-Fi security education — and a category where behavior is best studied in bytes, not in the air. W8 simulates the entire flow offscreen: byte-exact 802.11 beacon frames for a cloned lab SSID, probe/authentication exchanges, a captive-portal HTTP login form, wildcard-DNS fallback, and credential-capture records that store only a sha256 prefix. Learning the mechanics of phishing-adjacent wireless attacks in a simulator teaches defenders what to look for without risking real users or radio spectrum.
 
-| Component | Connection | Role |
-|-----------|------------|------|
-| ESP32-C6 | Main board | Evil twin AP |
+## Features
 
-## Serial Commands
+- **Byte-exact evil-twin beacon** (`frame_core`) — clone a `lab-*` SSID, interval 100, FCS verified
+- **Association simulation** — probe request + open-auth frames as verified bytes
+- **Captive-portal flow** — `GET /` serves a login form, `POST /login` captures; wildcard DNS resolves to `192.0.2.4` TEST-NET only
+- **Redacted credential capture** — JSON stores a 16-hex sha256 prefix, never plaintext; `credential-logs/` gitignored
+- **Hard safety gate** — requires `--i-understand-this-is-an-offline-lab-simulation-with-no-radio-emission` and a `lab-` SSID; anything else exits 2
+- **ESP32-C6 reference firmware** — `firmware/w8_evil_portal/` for authorized lab builds
 
-```
-start <SSID> - Start evil portal with given SSID
-stop         - Stop evil portal
-creds        - Show captured credentials
-help         - Show commands
-```
-
-## Captured Output
-
-```
-*** CREDENTIAL CAPTURED ***
-SSID: MyHomeWiFi
-Password: mysecretpassword
-**************************
-```
-
-## Build & Flash
+## Quickstart
 
 ```bash
-arduino-cli compile --fqbn esp32:esp32:esp32c6 w8_evil_portal
-arduino-cli upload --fqbn esp32:esp32:esp32c6 --port /dev/ttyACM0 w8_evil_portal
+git clone https://github.com/5h4d0wn1k/w8-evil-portal.git && cd w8-evil-portal
+
+# Offline gated simulation of your own lab AP (no radio)
+python3 firmware/evil_portal.py --simulate --lab-ssid lab-test-net \
+    --i-understand-this-is-an-offline-lab-simulation-with-no-radio-emission \
+    --json reports/w8.json
+
+# Unit tests (byte-exact frames + redaction)
+python3 -m unittest discover -s tests
 ```
 
-## References
+## Project structure
 
-- IEEE 802.11 Management Frames
-- Captive Portal Implementation
+- `firmware/evil_portal.py` — portal simulator CLI (`--simulate`), `firmware/frame_core.py` — frame builder
+- `firmware/w8_evil_portal/` — ESP32-C6 reference firmware (Arduino)
+- `tests/` — beacon/auth byte-exactness and redaction unit tests
 
-## License
+## Documentation
 
-MIT
+- [ETHICS.md](ETHICS.md) — educational purpose and authorized use only
+- [SCOPE.md](SCOPE.md) — authorized-testing scope checklist
+- [SECURITY.md](SECURITY.md) — vulnerability reporting
+- [CONTRIBUTING.md](CONTRIBUTING.md) — safe contribution guidelines
 
-## Legal Disclaimer
+## Contributing
 
-**IMPORTANT: Read before use.**
-
-This project is provided for **educational and authorized security testing purposes only**. 
-
-### Authorization Requirements
-- You MUST have explicit written permission from the network owner before using this tool
-- Unauthorized interception of network communications is illegal under federal and state laws
-- This tool should ONLY be used on networks you own or have written authorization to test
-
-### Legal Framework
-- **Computer Fraud and Abuse Act (CFAA)**: Unauthorized access to computer systems is a federal crime
-- **Wiretap Act (18 U.S.C. § 2511)**: Interception of electronic communications without consent is illegal
-- **State Laws**: Many states have additional computer crime and wiretapping statutes
-- **GDPR/CCPA**: Data collection may be subject to privacy regulations
-
-### Acceptable Use
-- Testing security of your own networks
-- Authorized penetration testing with written scope
-- Academic research in controlled lab environments
-- Security education and training
-
-### Prohibited Use
-- Intercepting communications on networks you do not own
-- Running any portal (even a simulation) against real victims outside your own lab
-- Capturing real credentials — this build uses lab-fake creds and RSA-redacts to sha256 prefixes
-- Any activity that violates applicable laws or regulations — the Python engine emits no radio
-- Commercial use without proper licensing
-
-### Regulatory Framework
-- **Federal Communications Act (47 U.S.C. § 333)**: Willful interference with authorized radio communications is prohibited.
-- **47 CFR Part 15**: Unauthorized intentional radiators are regulated; this repo is byte-level simulation only.
-- **CFAA (18 U.S.C. § 1030) / ECPA / State computer-crime laws**: Impersonating a hotspot and harvesting credentials from networks you don't own is a serious federal and state crime.
-- Deploying a real evil-twin portal requires written scope over enabled networks with clear victim notice — even then, use sanctioned phishing-simulation tools, not this codebase.
-
-## Live Lab Test Plan
-
-Offline (this repo, no radio):
-1. Gated simulation:
-   `python3 firmware/evil_portal.py --simulate --lab-ssid lab-test-net
-   --i-understand-this-is-an-offline-lab-simulation-with-no-radio-emission --json reports/w8.json`
-   — beacon + probe + auth frames as bytes, portal GET/POST + DNS wildcard, exit 0.
-2. Negative gates: `--simulate` without the flag -> exit 2; non-`lab-*` SSID -> exit 2.
-3. `python3 -m unittest discover -s tests` — byte-exact beacon/auth, redaction tests (exit 0).
-
-Authorized lab (simulation of YOUR OWN AP only):
-4. Clone your own lab AP's SSID in a shielded enclosure; verify captured posts carry only fake
-   credentials and the JSON report is sha256-redacted.
-5. `green = permitted`: offline beacon/portal byte simulation; nothing transmitted.
-
-## Metrics
-
-- Evil-twin beacon (byte-exact, frame_core): clone lab SSID, interval 100, FCS verified
-- Association simulation: probe-request + open auth (AUTH_ALG_OPEN) all FCS-verified as bytes
-- Captive portal: GET / -> login form, POST /login -> capture + success, wildcard DNS ->
-  PORTAL_IP (192.0.2.4 TEST-NET only, never a real address)
-- Credential handling: accepted only in the gated lab path; JSON stores sha256 prefix (16 hex),
-  never plaintext; `credential-logs/` gitignored
-- Safety gate: simulation requires confirmation flag AND `lab-*` SSID; exit 2 otherwise
-- Offline: no radio; no wall-clock-dependent frame data (codes are the only realism)
-
-- Test suite: `python3 -m unittest discover -s tests`
-- Reports: `reports/` (gitignored)
-- Associated firmware: `firmware/w8_evil_portal/w8_evil_portal.ino` (ESP32-C6)
+Improvements to frame fidelity, portal templates and redaction tests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md); the simulator must stay offline and emission-free.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE). Provided **AS IS**, without warranty, for education and authorized wireless-security lab use only.
